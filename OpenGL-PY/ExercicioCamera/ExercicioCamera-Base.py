@@ -27,6 +27,7 @@
 # ***********************************************************************************
 import os
 import sys
+import math
 
 # Em alguns sistemas Linux, pode ser necessário comentar este bloco ou
 # trocar "glx" pelo backend OpenGL disponível na máquina.
@@ -56,12 +57,23 @@ import random as ALE
 # TODO 1.1: Criar variáveis para eye=(0,0,10) e center=(0,0,0).
 # Manter up=(0,1,0). Definir um passo de deslocamento, por exemplo 0.5.
 # A direção de visão é center-eye; center é um ponto, não um vetor direção.
+eye = (0,0,10)
+center = (0,0,0)
+up = (0,1,0)
+passo = 0.5
 #
 # TODO 2.1: Criar variáveis para fov=90, near=0.01 e far=50.
 # AspectRatio já é atualizado por reshape(); não fixar seu valor na projeção.
+fov = 90
+near = 0.01
+far = 50
 #
 # TODO 3.1: Criar left=-10, right=10, bottom=-10 e top=10.
 # Compartilhar near/far com a perspectiva para simplificar a alternância.
+left = -10
+right = 10
+bottom = -10
+top = 10
 #
 # TODO 4.1: Criar uma variável para a projeção ativa (inicial: perspectiva).
 # Guardar os valores iniciais da câmera e das projeções para restaurá-los.
@@ -148,6 +160,23 @@ def DefineLuz():
 def DesenhaCubo():
     glutSolidCube(2)
 
+def DirecaoValida(e, c, tol=1e-6):
+    # direção de visão = center - eye
+    d = (c[0]-e[0], c[1]-e[1], c[2]-e[2])
+    comp = math.sqrt(d[0]**2 + d[1]**2 + d[2]**2)
+    if comp < tol:
+        print("Movimento rejeitado: eye não pode ser igual a center.")
+        return False
+    # produto vetorial d x up: se for ~0, a direção é paralela a up
+    cx = d[1]*up[2] - d[2]*up[1]
+    cy = d[2]*up[0] - d[0]*up[2]
+    cz = d[0]*up[1] - d[1]*up[0]
+    if math.sqrt(cx**2 + cy**2 + cz**2) < tol * comp:
+        print("Movimento rejeitado: direção de visão paralela a up.")
+        return False
+    return True
+
+
 def PosicUser():
     glMatrixMode(GL_PROJECTION)
     glLoadIdentity()
@@ -165,7 +194,9 @@ def PosicUser():
     glLoadIdentity()
     # TODO 1.2: Usar as variáveis eye e center em gluLookAt.
     # Impedir eye=center e direção paralela a up (use uma tolerância).
-    gluLookAt(0, 0, 10, 0, 0, 0, 0, 1.0, 0)
+    gluLookAt(eye[0], eye[1], eye[2],
+          center[0], center[1], center[2],
+          up[0], up[1], up[2])
 
 # **********************************************************************
 # void DesenhaLadrilho(int corBorda, int corDentro)
@@ -275,11 +306,19 @@ def animate():
 # **********************************************************************
 ESCAPE = b'\x1b'
 def keyboard(key, x, y):
-    global AnimacaoAtiva
+    global AnimacaoAtiva, eye
     if key == ESCAPE:
         os._exit(0)
     if key == b' ':
         AnimacaoAtiva = not AnimacaoAtiva
+
+    if key == b'w' or key == b's':
+        dz = -passo if key == b'w' else passo   # w = frente (Z diminui), s = trás
+        novo_eye = (eye[0], eye[1], eye[2] + dz)
+        if DirecaoValida(novo_eye, center):
+            eye = novo_eye
+
+    glutPostRedisplay()
 
     # TODO 1.3: Mover eye nos três eixos. Sugestão: a/d para X,
     # q/e para Y e w/s para Z. Esses deslocamentos são nos eixos do mundo.
